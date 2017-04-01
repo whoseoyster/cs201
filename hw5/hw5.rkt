@@ -333,7 +333,7 @@
   (cond
       [(empty? line) '()]
       [else
-       (let ((item (symbol->string (first line))))
+       (let ((item (if (symbol? (first line)) (symbol->string (first line)) " ")))
          (cond
            [(equal? #\: (string-ref item (- (string-length item) 1)))
              (assemble-one (rest line) table)]
