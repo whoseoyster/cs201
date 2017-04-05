@@ -843,11 +843,11 @@
       [(equal? ins '(0 0 1 1))
        (let ((val (sum (cpu-acc cpu-t) (ram-read (bin->n ins-addr) ram-t))))
            (if (first val) (add-to-pc 1 (conf (cpu (second val) (cpu-pc cpu-t) '(1) (cpu-aeb cpu-t)) ram-t))
-               (add-to-pc 1 (conf (cpu '(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (cpu-pc cpu-t) '(1) '(0)) ram-t))))]
+               (add-to-pc 1 (conf (cpu '(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (cpu-pc cpu-t) '(1) '(1)) ram-t))))]
       [(equal? ins '(0 1 0 0))
        (let ((val (diff (cpu-acc cpu-t) (ram-read (bin->n ins-addr) ram-t))))
            (if (first val) (add-to-pc 1 (conf (cpu (second val) (cpu-pc cpu-t) '(1) (cpu-aeb cpu-t)) ram-t))
-               (add-to-pc 1 (conf (cpu '(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (cpu-pc cpu-t) '(1) '(0)) ram-t))))]
+               (add-to-pc 1 (conf (cpu '(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (cpu-pc cpu-t) '(1) '(1)) ram-t))))]
       [(equal? ins '(0 1 0 1))
        (add-to-pc 1 (do-input config))]
       [(equal? ins '(0 1 1 0))
