@@ -23,8 +23,8 @@
 ; CS 201a HW #6  DUE Wednesday, April 19 at 11:59 pm, 
 ; via the submit system on the Zoo.
 ;************************************************************
-; Name:
-; Email address:
+; Name: Rishab Ramanathan
+; Email address: rishab.ramanathan@yale.edu
 ;************************************************************
 
 ; Computer science topics: strings, languages, regular expressions,
@@ -83,7 +83,15 @@
 ;****************************
 
 (define (reg-exp? value)
-  "not done yet")
+  (cond
+    [(string? value) #t]
+    [(con? value) (if (and (reg-exp? (con-arg1 value))
+                        (reg-exp? (con-arg2 value))) #t #f)]
+    [(alt? value) (if (and (reg-exp? (alt-arg1 value))
+                        (reg-exp? (alt-arg2 value))) #t #f)]
+    [(rep? value) (if (reg-exp? (rep-arg value)) #t #f)]
+    [(ques? value) (if (reg-exp? (ques-arg value)) #t #f)]
+    [else #f]))
 
 ;************************************************************
 ; ** problem 2 ** (10 points)
@@ -129,13 +137,24 @@
 ;************************************************************
 
 (define (flip bias)
-  "not done yet")
+  (if (> bias (random)) #t #f))
+
+;makes easier with list that keeps track
+(define (try-helper lst count bias)
+  (cond
+    [(equal? 0 count) lst]
+    [else (if (flip bias) (try-helper (list (+ 1 (first lst)) (second lst))
+                                      (- count 1) bias)
+              (try-helper (list (first lst) (+ 1 (second lst)))
+                                      (- count 1) bias))]))
 
 (define (try-flips count bias)
-  "not done yet")
+  (try-helper '(0 0) count bias))
 
 (define (pick lst)
-  "not done yet")
+  (cond
+    [(empty? lst) #f]
+    [else (list-ref lst (random (length lst)))]))
 
 ;************************************************************
 ; ** problem 3 ** (20 points)
@@ -171,7 +190,13 @@
 ;************************************************************
 
 (define (reg-exp-gen exp)
-  "not done yet")
+  (cond
+    [(string? exp) exp]
+    [(con? exp) (string-append (reg-exp-gen (con-arg1 exp)) (reg-exp-gen (con-arg2 exp)))]
+    [(alt? exp) (pick (list (reg-exp-gen (alt-arg1 exp)) (reg-exp-gen (alt-arg2 exp))))]
+    [(rep? exp) (if (flip 0.5) (string-append (reg-exp-gen (rep-arg exp)) (reg-exp-gen exp)) "")]
+    [(ques? exp) (if (flip 0.5) (reg-exp-gen (ques-arg exp)) "")]
+    [else ""]))
 
 ;************************************************************
 ; A (possibly incomplete) Deterministic Finite State Acceptor (DFA)
@@ -246,8 +271,20 @@
 ;#f
 ;************************************************************
 
+;does the heavy lifting for the dfa-accepts? predicate function
+(define (dfa-accepts-helper mach str count state)
+  (cond
+    [(equal? count (string-length str))
+     (if (member state (dfa-acc mach)) #t #f)]
+    [else (let ((st (string-ref str count)))
+            (cond
+              [(member st (dfa-alph mach))
+               (let ((next (filter (lambda (x) (equal? (entry-key x) (list state st))) (dfa-trans mach))))
+                 (if (empty? next) #f (dfa-accepts-helper mach str (+ 1 count) (entry-value (first next)))))]
+              [else #f]))]))
+
 (define (dfa-accepts? mach str)
-  "not done yet")
+  (dfa-accepts-helper mach str 0 (dfa-start mach)))
      
 ;************************************************************
 ; A Context Free Grammar (CFG) is represented using the following.
@@ -368,8 +405,30 @@
 
 ;************************************************************
 
+;gets the portion of the list before the first symbol -- DUMB. This language needs indexing.
+(define (member-filter lst sym)
+  (cond
+    [(equal? #f (member sym lst)) lst]
+    [else (member-filter (reverse (rest (member sym (reverse lst)))) sym)]))
+
+;heavy lifting for cfg-gen done here.
+(define (cfg-gen-helper grammar lst)
+  (cond
+    [(empty? lst) '()]
+    [(empty? (filter symbol? lst)) lst]
+    [else
+     (let ((sym (first (filter symbol? lst))))
+       (let ((p (pick (filter (lambda (x) (equal? (rule-lhs x) sym)) (cfg-rules grammar)))))
+         (if p (cfg-gen-helper grammar (append
+                                        (member-filter lst sym)
+                                        (rule-rhs p)
+                                        (rest (member sym lst)))) '())))]))
+
 (define (cfg-gen grammar)
-  "not done yet")
+  (cfg-gen-helper grammar
+     (let ((sym (cfg-start grammar)))
+       (let ((p (pick (filter (lambda (x) (equal? (rule-lhs x) sym)) (cfg-rules grammar)))))
+         (if p (cfg-gen-helper grammar (rule-rhs p)) '())))))
 
 ;************************************************************
 ; ** problem 6 ** (10 points)
@@ -380,7 +439,30 @@
 ;************************************************************
 
 (define my-cfg
-  (cfg "not" "done" "yet"))
+  (cfg
+   '(s a b c d e f g)
+   's
+   (list
+    (rule 's '(a b))
+    (rule 'a '("i"))
+    (rule 'a '("they"))
+    (rule 'a '("we"))
+    (rule 'b '(c d))
+    (rule 'c '("love"))
+    (rule 'c '("like"))
+    (rule 'c '("know"))
+    (rule 'd '("Jesus"))
+    (rule 'd '(e f g))
+    (rule 'e '("her"))
+    (rule 'e '("his"))
+    (rule 'e '("your"))
+    (rule 'f '("furry"))
+    (rule 'f '("odd"))
+    (rule 'f '("crazy"))
+    (rule 'g '("cat"))
+    (rule 'g '("dog"))
+    (rule 'g '("otter"))
+    )))
 
 ;************************************************************
 ; ** problem 7 ** (10 points)
@@ -407,7 +489,69 @@
 ;"yogurt"
 ;************************************************************
 
+;heavy lifting. Keeps track of list of nonterminals and rules and returns them at the end of processing entire expression
+(define (reg-exp-helper exp rules nonterm symb)
+  (cond
+    [(con? exp)
+     (let ((a1 (string? (con-arg1 exp))) (a2 (string? (con-arg2 exp))))
+       (cond
+         [(and a1 a2) (list nonterm (append rules (list (rule symb (list (con-arg1 exp) (con-arg2 exp))))))]
+         [(and a1 (not a2))
+          (let ((symnew (gensym))) (reg-exp-helper (con-arg2 exp)
+                    (append rules (list (rule symb (list (con-arg1 exp) symnew)))) (append nonterm (list symnew)) symnew))]
+         [(and a2 (not a1))
+          (let ((symnew (gensym))) (reg-exp-helper (con-arg1 exp)
+                    (append rules (list (rule symb (list symnew (con-arg2 exp))))) (append nonterm (list symnew)) symnew))]
+         [else
+          (let ((symnew1 (gensym)) (symnew2 (gensym)))
+            (let ((part1 (reg-exp-helper (con-arg1 exp)
+                    (append rules (list (rule symb (list symnew1 symnew2)))) (append nonterm (list symnew1 symnew2)) symnew1)))
+              (reg-exp-helper (con-arg2 exp) (second part1) (first part1) symnew2)))]))]
+    [(alt? exp)
+     (let ((a1 (string? (alt-arg1 exp))) (a2 (string? (alt-arg2 exp))))
+       (cond
+         [(and a1 a2) (list nonterm (append rules (list (rule symb (list (alt-arg1 exp)))
+                                                        (rule symb (list (alt-arg2 exp))))))]
+         [(and a1 (not a2))
+          (let ((symnew (gensym))) (reg-exp-helper (alt-arg2 exp)
+                    (append rules (list (rule symb (list (alt-arg1 exp)))
+                                        (rule symb (list symnew))))) (append nonterm (list symnew)) symnew)]
+         [(and a2 (not a1))
+          (let ((symnew (gensym))) (reg-exp-helper (alt-arg1 exp)
+                    (append rules (list (rule symb (list (alt-arg2 exp)))
+                                        (rule symb (list symnew))))) (append nonterm (list symnew)) symnew)]
+         [else
+          (let ((symnew1 (gensym)) (symnew2 (gensym)))
+            (let ((part1 (reg-exp-helper (alt-arg1 exp)
+                    (append rules (list (rule symb (list symnew1))
+                                        (rule symb (list symnew2)))) (append nonterm (list symnew1 symnew2)) symnew1)))
+              (reg-exp-helper (alt-arg2 exp) (second part1) (first part1) symnew2)))]))]
+    [(rep? exp)
+     (let ((a1 (string? (rep-arg exp))))
+       (cond
+         [a1 (list nonterm (append rules (list (rule symb (list (rep-arg exp) symb))
+                                               (rule symb (list "")))))]
+         [else
+          (let ((symnew (gensym))) (reg-exp-helper (rep-arg exp)
+                    (append rules (list (rule symb (list symnew symb))
+                                        (rule symb (list "")))) (append nonterm (list symnew)) symnew))]))]
+    [(ques? exp)
+     (let ((a1 (string? (ques-arg exp))))
+       (cond
+         [a1 (list nonterm (append rules (list (rule symb (list (ques-arg exp)))
+                                               (rule symb (list "")))))]
+         [else
+          (let ((symnew (gensym))) (reg-exp-helper (ques-arg exp)
+                    (append rules (list (rule symb (list symnew))
+                                        (rule symb (list "")))) (append nonterm (list symnew)) symnew))]))]
+    [else #f]))
+
 (define (reg-exp->cfg exp)
-  "not done yet")
+  (cond
+    [(string? exp) (let ((sym (gensym))) (cfg (list sym) sym (list (rule sym (list exp)))))]
+    [(reg-exp? exp)
+     (let ((res (reg-exp-helper exp '() '(s) 's)))
+       (cfg (first res) (first (first res)) (second res)))]
+    [else #f]))
   
 ;************************************************************
