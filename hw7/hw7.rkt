@@ -16,8 +16,8 @@
 ; from you residential college dean, no homework can be accepted
 ; after the last day of Reading Period, that is, after May 4.
 ;************************************************************
-; Name:
-; Email address:
+; Name: Rishab Ramanathan
+; Email address: rishab.ramanathan@yale.edu
 ;************************************************************
 
 ; Computer science topics: running times of programs, insertion sort,
@@ -126,10 +126,26 @@
 ;******************************(******************************
 
 (define (random-list n)
-  "not done yet")
+  (cond
+    [(equal? n 0) '()]
+    [else (cons (random) (random-list (- n 1)))]))
+
+(define (time-calls-helper reps proc args start val)
+  (cond
+    [(equal? reps 0) (/ (- (current-inexact-milliseconds) start) 1000)]
+    [(equal? reps 0.0) (/ (- (current-inexact-milliseconds) start) 1000)]
+    [else (time-calls-helper (- reps 1) proc args start (apply proc args))]))
+
+(define (repeater proc args count)
+  (for ((i (in-range count))) (apply proc args)))
 
 (define (time-many-calls reps proc args)
-  "not done yet")
+  (let ((now (current-inexact-milliseconds)))
+    (for ((i (in-range reps))) (apply proc args))
+    (/ (- (current-inexact-milliseconds) now) 1000)))
+
+;(define (time-many-calls reps proc args)
+;  (time-calls-helper reps proc args (current-inexact-milliseconds) 0))
   
 ;************************************************************
 ; ** problem 2 ** (15 points)
