@@ -130,22 +130,10 @@
     [(equal? n 0) '()]
     [else (cons (random) (random-list (- n 1)))]))
 
-(define (time-calls-helper reps proc args start val)
-  (cond
-    [(equal? reps 0) (/ (- (current-inexact-milliseconds) start) 1000)]
-    [(equal? reps 0.0) (/ (- (current-inexact-milliseconds) start) 1000)]
-    [else (time-calls-helper (- reps 1) proc args start (apply proc args))]))
-
-(define (repeater proc args count)
-  (for ((i (in-range count))) (apply proc args)))
-
 (define (time-many-calls reps proc args)
   (let ((now (current-inexact-milliseconds)))
     (for ((i (in-range reps))) (apply proc args))
     (/ (- (current-inexact-milliseconds) now) 1000)))
-
-;(define (time-many-calls reps proc args)
-;  (time-calls-helper reps proc args (current-inexact-milliseconds) 0))
   
 ;************************************************************
 ; ** problem 2 ** (15 points)
@@ -179,6 +167,44 @@
 ; depend on the length of the structure and the index accessed?
 ;************************************************************
 
+;NOTE: Repeated test multiple times for each to make sure data was reliable.
+
+;length:
+;Time taken for (length lst) grows proportional to n: it has runtime complexity of O(n).
+;Measurements;
+;k = 1: 0.25273095703125
+;k = 2: 0.535097900390625
+;k = 3: 0.8512548828125
+;k = 4: 1.16872705078125
+
+;vector-ref:
+;Time taken for (vector-ref v index) stays constant (constant time): it has runtime complexity of O(1).
+;Measurements;
+;0%: 6.9091796875e-05
+;25%: 6.884765625e-05
+;50%: 6.8115234375e-05
+;75%: 6.787109375e-05
+;100%: 6.591796875e-05
+
+;list-ref:
+;Time taken for (list-ref lst index) grows proportional to n: it has runtime complexity of O(n).
+;Measurements;
+;0%: 6.9091796875e-05
+;25%: 0.08693896484375
+;50%: 0.1795400390625
+;75%: 0.27877001953125
+;100%: 0.400529052734375
+
+; (vector-ref v index) uses vectors. A vector is a fixed-length array with constant-time access and
+; update of the vector slots, which are numbered from 0 to one less than the number of slots in the vector. Therefore,
+; even when the length of the vector increases, it still takes only one step to access any element in the vector. This
+; is why it runs in constant time.
+; (list-ref lst index) uses lists. A list can be used as a single-valued sequence.
+; The elements of the list serve as elements of the sequence. Therefore, when accessing
+; an element at a specific index, the function must traverse through the list starting
+; from the beginning. This is why the function runs with time proportional to n. It
+; could, in the worst case, need to access every element to arrive at the desired element (the last one).
+
 
 ;************************************************************
 ; ** problem 3 ** (10 points)
@@ -197,11 +223,38 @@
 ; Comment out with semicolons your data and conclusions.
 ;************************************************************
 
+(define (len1 lis sofar)
+ (if
+  (null? lis) sofar
+  (len1 (cdr lis) (+ sofar 1))))
+
 (define (tr-length lst)
-  "not done yet")
+  (len1 lst 0))
   
 (define (ntr-length lst)
-  "not done yet")
+  (cond
+    [(empty? lst) 0]
+    [else (+ 1 (ntr-length (rest lst)))]))
+
+; The time taken for the non-tail recursive function are as follows:
+; > (time-many-calls 1000 ntr-length (list (random-list 100)))
+; 0.005880126953125
+; > (time-many-calls 1000 ntr-length (list (random-list 1000)))
+; 0.057385986328125
+; > (time-many-calls 1000 ntr-length (list (random-list 10000)))
+; 0.582383056640625
+
+; The time taken for the tail recursive function are as follows:
+; > (time-many-calls 1000 tr-length (list (random-list 100)))
+; 0.002474853515625
+; > (time-many-calls 1000 tr-length (list (random-list 1000)))
+; 0.027369140625
+; > (time-many-calls 1000 tr-length (list (random-list 10000)))
+; 0.2612509765625
+
+; Conclusion: Both tail recursive and non-tail recursive length functions run with time complexity O(n).
+; The tail recursive function just runs twice as fast as the non-tail recursive function because it doesn't
+; need to return to the previous call. 
 
 ;************************************************************
 
@@ -246,10 +299,19 @@
 ;************************************************************
 
 (define (insert compare? item lst)
-  "not done yet")
+  (cond
+    [(null? lst) (list item)]
+    [(compare? item (first lst)) (cons item lst)]
+    [else (cons (first lst) (insert compare? item (rest lst)))]))
   
 (define (merge compare? lst1 lst2)
-  "not done yet")
+  (cond
+    [(null? lst1) lst2]
+    [(null? lst2) lst1]
+    [else
+     (if (compare? (first lst1) (first lst2))
+         (cons (first lst1) (merge compare? (rest lst1) lst2))
+         (cons (first lst2) (merge compare? (rest lst2) lst1)))]))
   
 ;************************************************************
 ; ** problem 5 ** (15 points)
@@ -289,13 +351,27 @@
 ;************************************************************
 
 (define (divide-list lst)
-  "not done yet")
+  (let ((len (length lst)))
+    (cond
+      [(even? len) (list (take lst (/ len 2)) (drop lst (/ len 2)))]
+      [else (list (take lst (/ (+ (length lst) 1) 2)) (drop lst (/ (+ (length lst) 1) 2)))])))
 
 (define (isort compare? lst)
-  "not done yet")
+  (cond
+    [(null? lst) '()]
+    [else
+     (insert compare? (first lst)
+             (isort compare? (rest lst)))]))
   
 (define (msort compare? lst)
-  "not done yet")
+  (cond
+    [(null? lst) lst]
+    [(null? (rest lst)) lst]
+    [else
+     (let ((div-lst (divide-list lst)))
+       (merge compare?
+            (msort compare? (first div-lst))
+            (msort compare? (second div-lst))))]))
 
 ;************************************************************
 ; ** problem 6 ** (15 points)
@@ -319,6 +395,67 @@
 ; necessarily uniform over the whole range of feasible input lengths.
 ;************************************************************
 
+;NOTE: Repeated test multiple times and took their average for each sort to make sure data was reliable.
+
+;insertion sort - BEST CASE:
+;Time complexity for the insertion sort in the best case is Theta(n), based on data observed below.
+;> (time-many-calls 1000 isort (list <= (build-list 10 values)))
+;0.001154052734375
+;> (time-many-calls 1000 isort (list <= (build-list 100 values)))
+;0.0119638671875
+;> (time-many-calls 1000 isort (list <= (build-list 1000 values)))
+;0.15160302734375
+;> (time-many-calls 1000 isort (list <= (build-list 10000 values)))
+;1.704490966796875
+; the time taken here clearly grows proportional to n. The list is already sorted, so it only needs to access each element once.
+
+;insertion sort - WORST CASE:
+;Time complexity for the insertion sort in the worst case is Theta(n^2), based on data observed below.
+;> (time-many-calls 1000 isort (list <= (reverse (build-list 10 values))))
+;0.005881103515625
+;> (time-many-calls 1000 isort (list <= (reverse (build-list 20 values))))
+;0.032839111328125
+;> (time-many-calls 1000 isort (list <= (reverse (build-list 40 values))))
+;0.119636962890625
+;> (time-many-calls 1000 isort (list <= (build-list 80 values)))
+;0.43073291015625
+; the time taken here clearly grows proportional to n^2. The list is sorted in the opposite direction.
+; The data shows that every time the list is expanded by a factor of 2, the time taken increases by a factor of 2^2 = 4.
+; This proves the time complexity is Theta(n^2)
+
+;merge sort - BEST CASE:
+;Time complexity for the merge sort in the best case is Theta(n log n), based on data observed below.
+;> (time-many-calls 100 msort (list <= (build-list 10 values)))
+;0.000552978515625
+;> (time-many-calls 100 msort (list <= (build-list 100 values)))
+;0.00889208984375
+;> (time-many-calls 100 msort (list <= (build-list 1000 values)))
+;0.1450859375
+; the time taken here clearly grows proportional to n log n. Every time the list is expanded by a factor of 10,
+; the time taken increases by 10 * (log n / log (n/10)). Going from list size 10 to 100, this factor is roughly ~20,
+; which is what is seen.
+
+;merge sort - WORST CASE:
+;Time complexity for the merge sort in the worst case is Theta(n log n), based on data observed below.
+;> (time-many-calls 100 msort (list <= (reverse (build-list 10 values))))
+;0.000507080078125
+;> (time-many-calls 100 msort (list <= (reverse (build-list 100 values))))
+;0.008720947265625
+;> (time-many-calls 100 msort (list <= (reverse (build-list 1000 values))))
+;0.142096923828125
+; the time taken here clearly grows proportional to n log n. Same empirical reasoning as given for best case.
+
+;INPUTS FOR ISORT & MSORT:
+; best case -> the input is a list that is sorted with the <= comparator already. 
+; worst case -> the input is a list that is sorted with the >= comparator.
+
+;LONGEST INPUT FOR ISORT & MSORT TO PROCESS IN 10 SECS:
+; I am assuming by "longest list", you mean the best case list of numbers, because this is what the "longest list" would be.
+; isort -> ~ (10,000/1.7044)*1,000 ~ 5,867,167. It took 1.7044 seconds to sort a list of 10,000 numbers with 1,000 repetitions.
+; On testing, however, this number was closer to ~2,000,000. 
+; msort -> ~ 1,700,000. Since msort always runs in Theta(n log n) time, and one repetition of list size 10,000 resulted in 0.0379
+; seconds, n for 10 seconds turned out to be around 1,700,000. On testing this, it proved to be correct.
+
 
 ;************************************************************
 ; ** problem 7 ** (10 points)
@@ -339,8 +476,50 @@
 ; for isort and msort to sort the same inputs (as a vector or list).
 ;************************************************************
 
+; for testing purposes
+;(define test (make-vector 5))
+;(vector-set! test 1 3)
+;(vector-set! test 3 7)
+;(vector-set! test 4 1)
+
+(define (while-repl vec x j)
+  (cond
+    [(and (> j 0) (> (vector-ref vec (- j 1)) x))
+     (vector-set! vec j (vector-ref vec (- j 1)))
+     (while-repl vec x
+                 (- j 1))]
+    [else (list vec j)]))
+
 (define (visort vec)
-  "not done yet")
+  (let ((len (vector-length vec)))
+    (for ((i (in-range len)))
+      (let ((x (vector-ref vec i))
+            (j i))
+        (let ((new-v (while-repl vec x j))) 
+          (set! vec (first new-v))
+          (vector-set! vec (second new-v) x)))))
+  vec)
+
+;Time comparison -
+;BEST CASE:
+;> (time-many-calls 100 visort (list (list->vector (build-list 10 values))))
+;0.00018896484375, merge sort: 0.000552978515625, insertion sort: 0.00012890625
+;> (time-many-calls 100 visort (list (list->vector (build-list 100 values))))
+;0.001677001953125, merge sort: 0.01019384765625, insertion sort: 0.001738037109375
+;> (time-many-calls 100 visort (list (list->vector (build-list 1000 values))))
+;0.03047802734375, merge sort: 0.15077197265625, insertion sort: 0.015029052734375
+
+;WORST CASE:
+;> (time-many-calls 100 visort (list (list->vector (reverse (build-list 10 values)))))
+;0.000191162109375, merge sort: 0.000507080078125, insertion sort: 0.000544189453125
+;> (time-many-calls 100 visort (list (list->vector (reverse (build-list 100 values)))))
+;0.001927001953125, merge sort: 0.008720947265625, insertion sort: 0.079635009765625
+;> (time-many-calls 100 visort (list (list->vector (reverse (build-list 1000 values)))))
+;0.047733154296875, merge sort: 0.142096923828125, insertion sort: 7.8504189453125
+
+;From the data shown above, we can see that the visort is much more efficient when scaling than
+;either of the other two sort functions. In both best case and worst case, time taken for visort
+;grows proportional to n. It has runtime complexity Theta(n) for both best and worst.
   
 ;************************************************************
 ; ** problem 8 ** (10 points)
@@ -371,11 +550,22 @@
 ;34
 ;************************************************************
 
+;to keep track of count and comparer type
+(define count 0)
+(define comparer <=)
+
+;compare? wrapper
+(define (comp-wrapper i1 i2)
+  (set! count (+ count 1))
+  (comparer i1 i2))
+
 (define (count-compares sort compare? lst)
-  "not done yet")
+  (set! comparer compare?)
+  (sort comp-wrapper lst)
+  (let ((n count))
+    (set! count 0)
+    n))
 
 ;************************************************************
 ;********* end of hw7, end of hws! **************************
-
-
 
